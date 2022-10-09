@@ -35,7 +35,6 @@ class CfgNode(_CfgNode):
     .. automethod:: merge_from_list
     .. automethod:: merge_from_other_cfg
     """
-
     """
     2022.10.8 记: 
     
@@ -47,8 +46,8 @@ class CfgNode(_CfgNode):
     在config.py中还定义了下面这些函数:
     get_cfg(): 获得一份默认config的拷贝
     set_global_cfg(): 应该是把config的KEY变成全局KEY的,其他文件里没有调用这个函数
-
-
+    configurable(): 专门用来装饰其他函数的函数
+    _get_args_from_config _called_with_cfg :configurable中调用的两个函数
     """
     @classmethod
     def _open_cfg(cls, filename):
@@ -148,7 +147,8 @@ def set_global_cfg(cfg: CfgNode) -> None:
 
 def configurable(init_func=None, *, from_config=None):
     """
-    Decorate a function or a class's __init__ method so that it can be called
+    装饰一个函数或者类的 __init__ 方法
+    Decorate a function or a class's __init__ method so that it can be called (调用)
     with a :class:`CfgNode` object using a :func:`from_config` function that translates
     :class:`CfgNode` to arguments.
 
@@ -165,8 +165,8 @@ def configurable(init_func=None, *, from_config=None):
                 # Returns kwargs to be passed to __init__
                 return {"a": cfg.A, "b": cfg.B}
 
-        a1 = A(a=1, b=2)  # regular construction
-        a2 = A(cfg)       # construct with a cfg
+        a1 = A(a=1, b=2)  # regular construction (常规构造)
+        a2 = A(cfg)       # construct with a cfg 
         a3 = A(cfg, b=3, c=4)  # construct with extra overwrite
 
         # Usage 2: Decorator on any function. Needs an extra from_config argument:
@@ -280,3 +280,4 @@ def _called_with_cfg(*args, **kwargs):
     # `from_config`'s first argument is forced to be "cfg".
     # So the above check covers all cases.
     return False
+

@@ -1,4 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
+"""
+文件名：离散采样器
+里面一共有四个类：
+TrainingSampler、RandomSubsetTrainingSampler
+RepeatFactorTrainingSampler、InferenceSampler
+"""
 import itertools
 import logging
 import math
@@ -17,6 +23,8 @@ class TrainingSampler(Sampler):
     In training, we only care about the "infinite stream" of training data.
     So this sampler produces an infinite stream of indices and
     all workers cooperate to correctly shuffle the indices and sample different indices.
+    在训练中，我们只关心训练数据的 "无限流"
+    因此，这个采样器产生了一个索引的无限流，并且所有工作者合作，正确地随机排列索引并对不同的索引进行采样。
 
     The samplers in each worker effectively produces `indices[worker_id::num_workers]`
     where `indices` is an infinite stream of indices consisting of

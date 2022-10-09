@@ -16,6 +16,7 @@ COCO model (with correct class names and colors).
 
 
 # All coco categories, together with their nice-looking visualization colors
+# 所有的coco类别，以及它们漂亮的可视化颜色
 # It's from https://github.com/cocodataset/panopticapi/blob/master/panoptic_coco_categories.json
 COCO_CATEGORIES = [
     {"color": [220, 20, 60], "isthing": 1, "id": 1, "name": "person"},
@@ -168,6 +169,7 @@ COCO_PERSON_KEYPOINT_NAMES = (
 # fmt: on
 
 # Pairs of keypoints that should be exchanged under horizontal flipping
+# 在水平翻转下应该交换的一对关键点
 COCO_PERSON_KEYPOINT_FLIP_MAP = (
     ("left_eye", "right_eye"),
     ("left_ear", "right_ear"),
