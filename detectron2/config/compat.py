@@ -1,5 +1,27 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 """
+2022.10.8 记：这个文件的文件名叫 兼容.py 所以应该是用来解决兼容性问题的,具体的内容我没有看
+
+配置的向后兼容性。
+
+提升版本的说明：
++ 如果只是添加了新的密钥，则不需要提升版本。
+  只有在发生向后不兼容的变化时才需要这样做
+  (即一些现有的键消失了，或者一个键的含义改变了)
++ 要提升版本，请做以下工作。
+    1. 递增 defaults.py 中的 _C.VERSION。
+    2. 在这个文件中添加一个转换器。
+
+      每个ConverterVX都有一个函数 "upgrade",将配置从X-1升级到X。
+      和一个函数 "downgrade",将配置从X降级到X-1。
+
+      在每个函数中,VERSION都没有改变。
+
+      每个转换器都假定其输入有相关的键
+      (即，输入不是一个部分配置)。
+    3. 运行测试(test_config.py)以确保升级和降级的
+       功能是一致的。
+
 Backward compatibility of configs.
 
 Instructions to bump version:

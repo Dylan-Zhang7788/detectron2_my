@@ -4,9 +4,13 @@
 """
 This file contains components with some default boilerplate logic user may need
 in training / testing. They will not work for everyone, but many users may find them useful.
+此文件包含一些用户可能需要的默认样板逻辑组件在训练/测试中。
+它们并不适用于所有人，但许多用户可能会发现它们很有用。
 
 The behavior of functions/classes in this file is subject to change,
 since they are meant to represent the "common default behavior" people need in their projects.
+此文件中的函数/类可以被修改，
+因为它们旨在代表人们在项目中需要的“常见默认行为”。
 """
 
 import argparse
@@ -79,12 +83,12 @@ def create_ddp_model(model, *, fp16_compression=False, **kwargs):
     return ddp
 
 
-def default_argument_parser(epilog=None):
+def default_argument_parser(epilog=None): # 设置默认参数的一个函数，parser是在这里定义的
     """
     Create a parser with some common arguments used by detectron2 users.
 
     Args:
-        epilog (str): epilog passed to ArgumentParser describing the usage.
+        epilog (str): epilog passed to ArgumentParser describing the usage. epilog是描述用途的一个东西
 
     Returns:
         argparse.ArgumentParser:
@@ -104,7 +108,7 @@ Run on multiple machines:
     (machine0)$ {sys.argv[0]} --machine-rank 0 --num-machines 2 --dist-url <URL> [--other-flags]
     (machine1)$ {sys.argv[0]} --machine-rank 1 --num-machines 2 --dist-url <URL> [--other-flags]
 """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=argparse.RawDescriptionHelpFormatter, # 对参数描述的方法，这里不涉及到参数的定义
     )
     parser.add_argument("--config-file", default="", metavar="FILE", help="path to config file")
     parser.add_argument(

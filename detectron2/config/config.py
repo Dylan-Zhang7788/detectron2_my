@@ -11,6 +11,13 @@ from detectron2.utils.file_io import PathManager
 
 class CfgNode(_CfgNode):
     """
+    与`fvcore.common.config.CfgNode`相同，但不同之处在于。
+
+    1. 默认使用不安全的yaml加载。
+       注意，这可能导致任意代码的执行：在手动检查文件内容之前，你不能从不信任的来源加载配置文件。
+    2. 支持配置版本管理。
+       当试图合并一个旧的配置时，它将自动转换旧的配置。
+
     The same as `fvcore.common.config.CfgNode`, but different in:
 
     1. Use unsafe yaml loading by default.
@@ -29,6 +36,20 @@ class CfgNode(_CfgNode):
     .. automethod:: merge_from_other_cfg
     """
 
+    """
+    2022.10.8 记: 
+    
+    class CfgNode 继承了_CfgNode 有以下的类方法
+    _open_cfg(cls, filename): 打开文件,整个项目都没有用到这个函数
+    merge_from_file(): 从给定的配置文件中加载内容,并将其合并到自身
+    dump(): 返回配置的yaml字符串表示
+
+    在config.py中还定义了下面这些函数:
+    get_cfg(): 获得一份默认config的拷贝
+    set_global_cfg(): 应该是把config的KEY变成全局KEY的,其他文件里没有调用这个函数
+
+
+    """
     @classmethod
     def _open_cfg(cls, filename):
         return PathManager.open(filename, "r")
@@ -92,10 +113,9 @@ class CfgNode(_CfgNode):
         # to make it show up in docs
         return super().dump(*args, **kwargs)
 
-
 global_cfg = CfgNode()
-
-
+ 
+# 箭头的意思是为函数添加元数据,后面的东西是用来描述返回值类型的
 def get_cfg() -> CfgNode:
     """
     Get a copy of the default config.
@@ -107,9 +127,9 @@ def get_cfg() -> CfgNode:
 
     return _C.clone()
 
-
 def set_global_cfg(cfg: CfgNode) -> None:
     """
+    让全局配置指向给定的cfg。
     Let the global config point to the given cfg.
 
     Assume that the given "cfg" has the key "KEY", after calling
@@ -125,7 +145,6 @@ def set_global_cfg(cfg: CfgNode) -> None:
     global global_cfg
     global_cfg.clear()
     global_cfg.update(cfg)
-
 
 def configurable(init_func=None, *, from_config=None):
     """
@@ -214,7 +233,6 @@ def configurable(init_func=None, *, from_config=None):
 
         return wrapper
 
-
 def _get_args_from_config(from_config_func, *args, **kwargs):
     """
     Use `from_config` to obtain explicit arguments.
@@ -246,7 +264,6 @@ def _get_args_from_config(from_config_func, *args, **kwargs):
         # forward the other arguments to __init__
         ret.update(extra_kwargs)
     return ret
-
 
 def _called_with_cfg(*args, **kwargs):
     """
