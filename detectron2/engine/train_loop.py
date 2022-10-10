@@ -122,7 +122,10 @@ class TrainerBase:
         """
         hooks = [h for h in hooks if h is not None]
         for h in hooks:
-            assert isinstance(h, HookBase)
+            assert isinstance(h, HookBase) # assert 后面的值为假 就会报错
+            # isinstance是Python中的一个内建函数，是用来判断一个对象的变量类型。
+            # 如果h是hookbase类，则返回True，否则返回False
+            
             # To avoid circular reference, hooks and trainer cannot own each other.
             # This normally does not matter, but will cause memory leak if the
             # involved objects contain __del__:
@@ -215,7 +218,9 @@ class TrainerBase:
 
 class SimpleTrainer(TrainerBase):
     """
+    一个简单的训练器，用于最常见的任务类型
     A simple trainer for the most common type of task:
+    单成本 单优化器 单数据源 迭代优化。可以选择使用数据并行性。
     single-cost single-optimizer single-data-source iterative optimization,
     optionally using data-parallelism.
     It assumes that every step, you:
@@ -376,6 +381,7 @@ class AMPTrainer(SimpleTrainer):
     """
     Like :class:`SimpleTrainer`, but uses PyTorch's native automatic mixed precision
     in the training loop.
+    与SimpleTrainer类似, 但在训练循环中使用PyTorch的本地自动混合精度。
     """
 
     def __init__(self, model, data_loader, optimizer, grad_scaler=None):
