@@ -187,6 +187,7 @@ def configurable(init_func=None, *, from_config=None):
     """
 
     if init_func is not None:
+        # 判断init_func是函数，而且叫init，from_config没有
         assert (
             inspect.isfunction(init_func)
             and from_config is None
@@ -196,7 +197,10 @@ def configurable(init_func=None, *, from_config=None):
         @functools.wraps(init_func)
         def wrapped(self, *args, **kwargs):
             try:
+                # type(self)是现在子类中寻找某个方法，子类中找不到再去父类里面找
+                # 在这里其实就是在meta_arch里定义的类里边，去找from_config方法，看看有没有这个东西
                 from_config_func = type(self).from_config
+                # 没有我就报错
             except AttributeError as e:
                 raise AttributeError(
                     "Class with @configurable must have a 'from_config' classmethod."
@@ -204,7 +208,10 @@ def configurable(init_func=None, *, from_config=None):
             if not inspect.ismethod(from_config_func):
                 raise TypeError("Class with @configurable must have a 'from_config' classmethod.")
 
+            # 判断一下是不是用cfg去实例化这个类
+            # centernet里就是用cfg实例化，然后这里的大部分算法也是用cfg实例化
             if _called_with_cfg(*args, **kwargs):
+                # 用_get_args_from_config这个方法实例化
                 explicit_args = _get_args_from_config(from_config_func, *args, **kwargs)
                 init_func(self, **explicit_args)
             else:
@@ -240,13 +247,18 @@ def _get_args_from_config(from_config_func, *args, **kwargs):
     Returns:
         dict: arguments to be used for cls.__init__
     """
+    # 查看函数的参数
     signature = inspect.signature(from_config_func)
+    # 如果他的第一个参数不是cfg，就报错
+    # 还知道先把函数的名字弄对，，，，挺细节的
     if list(signature.parameters.keys())[0] != "cfg":
         if inspect.isfunction(from_config_func):
             name = from_config_func.__name__
         else:
             name = f"{from_config_func.__self__}.from_config"
         raise TypeError(f"{name} must take 'cfg' as the first argument!")
+    # 看一下参数的类型 是不是args或者kwargs，收藏夹里有说
+    # centernet在运行的时候执行的是else里的内容 我不理解
     support_var_arg = any(
         param.kind in [param.VAR_POSITIONAL, param.VAR_KEYWORD]
         for param in signature.parameters.values()
@@ -265,6 +277,7 @@ def _get_args_from_config(from_config_func, *args, **kwargs):
         ret.update(extra_kwargs)
     return ret
 
+# 判断的方法就是看看参数是不是cfg
 def _called_with_cfg(*args, **kwargs):
     """
     Returns:

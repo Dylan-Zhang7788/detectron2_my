@@ -1,14 +1,6 @@
 
-from calendar import c
+num_stages = max(
+                [{"res2": 1, "res3": 2, "res4": 3, "res5": 4}.get(f, 0) for f in ["res5"]]
+            )
 
-
-class A():
-    def __init__(self):
-        self.a=1
-
-    def B():
-        print('vvvv')
-
-c=A()
-
-print(isinstance(c,A))
+print(num_stages) 

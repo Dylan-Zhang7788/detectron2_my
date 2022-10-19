@@ -391,6 +391,7 @@ class ResNet(Backbone):
         if out_features is not None:
             # Avoid keeping unused layers in this module. They consume extra memory
             # and may cause allreduce to fail
+            # out_features写res4 num_stages就是3 写res5 就是4
             num_stages = max(
                 [{"res2": 1, "res3": 2, "res4": 3, "res5": 4}.get(f, 0) for f in out_features]
             )
@@ -662,33 +663,40 @@ def build_resnet_backbone(cfg, input_shape):
     stages = []
 
     for idx, stage_idx in enumerate(range(2, 6)):
+        # idx=0,1,2,3 stage_idx=2,3,4,5 没有6
         # res5_dilation is used this way as a convention in R-FCN & Deformable Conv paper
         dilation = res5_dilation if stage_idx == 5 else 1
         first_stride = 1 if idx == 0 or (stage_idx == 5 and dilation == 2) else 2
         stage_kargs = {
-            "num_blocks": num_blocks_per_stage[idx],
-            "stride_per_block": [first_stride] + [1] * (num_blocks_per_stage[idx] - 1),
-            "in_channels": in_channels,
-            "out_channels": out_channels,
-            "norm": norm,
+            "num_blocks": num_blocks_per_stage[idx], # 会变
+            "stride_per_block": [first_stride] + [1] * (num_blocks_per_stage[idx] - 1), # 会变
+            "in_channels": in_channels, # 开始给一个值 后面会改
+            "out_channels": out_channels, # 开始给一个值 后面会改
+            "norm": norm, # 默认值 FrozenBN
         }
         # Use BasicBlock for R18 and R34.
         if depth in [18, 34]:
             stage_kargs["block_class"] = BasicBlock
         else:
-            stage_kargs["bottleneck_channels"] = bottleneck_channels
-            stage_kargs["stride_in_1x1"] = stride_in_1x1
-            stage_kargs["dilation"] = dilation
-            stage_kargs["num_groups"] = num_groups
-            if deform_on_per_stage[idx]:
+            stage_kargs["bottleneck_channels"] = bottleneck_channels # 固定值
+            stage_kargs["stride_in_1x1"] = stride_in_1x1 # TRUE
+            stage_kargs["dilation"] = dilation # 会变
+            stage_kargs["num_groups"] = num_groups # 固定值 默认是 1
+            if deform_on_per_stage[idx]: # 默认值全是False 
                 stage_kargs["block_class"] = DeformBottleneckBlock
                 stage_kargs["deform_modulated"] = deform_modulated
                 stage_kargs["deform_num_groups"] = deform_num_groups
             else:
                 stage_kargs["block_class"] = BottleneckBlock
+        # make_stage 循环 num_blocks_per_stage 次 然后把 num_blocks_per_stage 个 block 放进一个数组里返回
+        # blocks接收这个返回值
         blocks = ResNet.make_stage(**stage_kargs)
         in_channels = out_channels
         out_channels *= 2
         bottleneck_channels *= 2
+        # blocks里添加一个一个block
+        # stages里再添加一个一个的blocks
         stages.append(blocks)
+        # 一堆的 block 在一个数组里 (例如BottleneckBlock)
     return ResNet(stem, stages, out_features=out_features, freeze_at=freeze_at)
+    # out_features默认是 res4
