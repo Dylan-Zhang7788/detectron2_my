@@ -1,6 +1,7 @@
+import numpy as np
 
-num_stages = max(
-                [{"res2": 1, "res3": 2, "res4": 3, "res5": 4}.get(f, 0) for f in ["res5"]]
+current_stride = int(
+                2 * np.prod([2,2,1])
             )
 
-print(num_stages) 
+print(current_stride)

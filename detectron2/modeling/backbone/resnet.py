@@ -109,8 +109,8 @@ class BottleneckBlock(CNNBlockBase):
         in_channels,
         out_channels,
         *,
-        bottleneck_channels,
-        stride=1,
+        bottleneck_channels, # 默认值64 不变
+        stride=1, 
         num_groups=1,
         norm="BN",
         stride_in_1x1=False,
@@ -144,8 +144,10 @@ class BottleneckBlock(CNNBlockBase):
         # The original MSRA ResNet models have stride in the first 1x1 conv
         # The subsequent fb.torch.resnet and Caffe2 ResNe[X]t implementations have
         # stride in the 3x3 conv
+        # stride_in_1x1 在init里写的是false，但default里的默认值是ture
+        # 所以这里 stride_1x1, stride_3x3 = (stride, 1) stride不同block是不一样的
         stride_1x1, stride_3x3 = (stride, 1) if stride_in_1x1 else (1, stride)
-
+        
         self.conv1 = Conv2d(
             in_channels,
             bottleneck_channels,
@@ -391,10 +393,11 @@ class ResNet(Backbone):
         if out_features is not None:
             # Avoid keeping unused layers in this module. They consume extra memory
             # and may cause allreduce to fail
-            # out_features写res4 num_stages就是3 写res5 就是4
+            # out_features有res4没有res5 num_stages就是3 有res5 就是4
             num_stages = max(
                 [{"res2": 1, "res3": 2, "res4": 3, "res5": 4}.get(f, 0) for f in out_features]
             )
+            # 如果只有res2和res3的特征用于输出，那后面的resblock就不用加载了
             stages = stages[:num_stages]
         for i, blocks in enumerate(stages):
             assert len(blocks) > 0, len(blocks)
@@ -408,12 +411,16 @@ class ResNet(Backbone):
             self.stage_names.append(name)
             self.stages.append(stage)
 
+            # 这个地方不理解，这样不就越乘越大了吗 不过后面好像也没用这个东西
             self._out_feature_strides[name] = current_stride = int(
                 current_stride * np.prod([k.stride for k in blocks])
             )
+            # 这个好理解 当前的通道数，就是blocks中最后的一个block的out_channels
             self._out_feature_channels[name] = curr_channels = blocks[-1].out_channels
         self.stage_names = tuple(self.stage_names)  # Make it static for scripting
-
+        
+        # 如果num_classes不是none 这就是一个分类的问题
+        # 直接在后面加一个池化一个全连接
         if num_classes is not None:
             self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
             self.linear = nn.Linear(curr_channels, num_classes)
@@ -424,9 +431,13 @@ class ResNet(Backbone):
             nn.init.normal_(self.linear.weight, std=0.01)
             name = "linear"
 
+        # 如果根本就没写out_features，就直接把最后一个层的输出 当做最终输出
+        # 经历过上面的 for i, blocks in enumerate(stages): name就是最后输出的res的名字
         if out_features is None:
-            out_features = [name]
+            out_features = [name] # out_feature 要是一个数组，不然后边会出问题
         self._out_features = out_features
+
+        # 作最后的一个验证 我没看懂 但感觉也不太重要
         assert len(self._out_features)
         children = [x[0] for x in self.named_children()]
         for out_feature in self._out_features:
@@ -443,19 +454,25 @@ class ResNet(Backbone):
         """
         assert x.dim() == 4, f"ResNet takes an input of shape (N, C, H, W). Got {x.shape} instead!"
         outputs = {}
+        # 前向传播的过程是 先进入stem层
         x = self.stem(x)
+        # 如果stem在_out_features里，就把他的输出结果加到outputs里
         if "stem" in self._out_features:
             outputs["stem"] = x
+        # 对name和stage进行迭代，就是 res2，res3，res4 迭代
         for name, stage in zip(self.stage_names, self.stages):
             x = stage(x)
+            # 如果resx在_out_features里，就把他的输出加进output
             if name in self._out_features:
                 outputs[name] = x
+        # 如果这是一个分类问题，就把最后全连接层的输出加到output里
         if self.num_classes is not None:
             x = self.avgpool(x)
             x = torch.flatten(x, 1)
             x = self.linear(x)
             if "linear" in self._out_features:
                 outputs["linear"] = x
+        # 把output去return
         return outputs
 
     def output_shape(self):
@@ -528,12 +545,17 @@ class ResNet(Backbone):
         for i in range(num_blocks):
             curr_kwargs = {}
             for k, v in kwargs.items():
+                # 以stride_per_block为例，stride_per_block=[2,1,1],num_block=3
+                # 找到了以_per_block结尾的stride_per_block，再确认stride不在kwarg里
+                # 然后让 curr_kwargs[stride]=2(第几个block，就对应第几个元素)
                 if k.endswith("_per_block"):
                     assert len(v) == num_blocks, (
                         f"Argument '{k}' of make_stage should have the "
                         f"same length as num_blocks={num_blocks}."
                     )
+                    #newk=原来的k去掉_per_block 比如原来的k是stride_per_block 现在的newk就是stride_per
                     newk = k[: -len("_per_block")]
+                    # newk必须不在kwarg里，否则会报错
                     assert newk not in kwargs, f"Cannot call make_stage with both {k} and {newk}!"
                     curr_kwargs[newk] = v[i]
                 else:
@@ -665,11 +687,12 @@ def build_resnet_backbone(cfg, input_shape):
     for idx, stage_idx in enumerate(range(2, 6)):
         # idx=0,1,2,3 stage_idx=2,3,4,5 没有6
         # res5_dilation is used this way as a convention in R-FCN & Deformable Conv paper
-        dilation = res5_dilation if stage_idx == 5 else 1
+        dilation = res5_dilation if stage_idx == 5 else 1 # dilation=1
         first_stride = 1 if idx == 0 or (stage_idx == 5 and dilation == 2) else 2
         stage_kargs = {
             "num_blocks": num_blocks_per_stage[idx], # 会变
-            "stride_per_block": [first_stride] + [1] * (num_blocks_per_stage[idx] - 1), # 会变
+            # stride_per_block: 会变 第一个值是[2,1,1],不是3
+            "stride_per_block": [first_stride] + [1] * (num_blocks_per_stage[idx] - 1), 
             "in_channels": in_channels, # 开始给一个值 后面会改
             "out_channels": out_channels, # 开始给一个值 后面会改
             "norm": norm, # 默认值 FrozenBN
@@ -678,7 +701,7 @@ def build_resnet_backbone(cfg, input_shape):
         if depth in [18, 34]:
             stage_kargs["block_class"] = BasicBlock
         else:
-            stage_kargs["bottleneck_channels"] = bottleneck_channels # 固定值
+            stage_kargs["bottleneck_channels"] = bottleneck_channels # 固定值,默认64
             stage_kargs["stride_in_1x1"] = stride_in_1x1 # TRUE
             stage_kargs["dilation"] = dilation # 会变
             stage_kargs["num_groups"] = num_groups # 固定值 默认是 1
@@ -691,9 +714,9 @@ def build_resnet_backbone(cfg, input_shape):
         # make_stage 循环 num_blocks_per_stage 次 然后把 num_blocks_per_stage 个 block 放进一个数组里返回
         # blocks接收这个返回值
         blocks = ResNet.make_stage(**stage_kargs)
-        in_channels = out_channels
-        out_channels *= 2
-        bottleneck_channels *= 2
+        in_channels = out_channels # 下一阶段的in 等于上一阶段的out
+        out_channels *= 2 # 每个阶段的out都翻一倍
+        bottleneck_channels *= 2 # 每个阶段的bottle neck也翻一倍
         # blocks里添加一个一个block
         # stages里再添加一个一个的blocks
         stages.append(blocks)
