@@ -411,7 +411,7 @@ class ResNet(Backbone):
             self.stage_names.append(name)
             self.stages.append(stage)
 
-            # 这个地方不理解，这样不就越乘越大了吗 不过后面好像也没用这个东西
+            # 我的理解是 stride 是指图像缩小了多少倍 这个FPN用到了
             self._out_feature_strides[name] = current_stride = int(
                 current_stride * np.prod([k.stride for k in blocks])
             )
@@ -722,4 +722,3 @@ def build_resnet_backbone(cfg, input_shape):
         stages.append(blocks)
         # 一堆的 block 在一个数组里 (例如BottleneckBlock)
     return ResNet(stem, stages, out_features=out_features, freeze_at=freeze_at)
-    # out_features默认是 res4

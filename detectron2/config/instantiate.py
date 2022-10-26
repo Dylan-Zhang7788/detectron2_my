@@ -1,6 +1,4 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
-# 文件名：实例化.py
-# 文件里只定义了两个函数：dump_dataclass(obj: Any) 和 instantiate(cfg)
 
 import collections.abc as abc
 import dataclasses

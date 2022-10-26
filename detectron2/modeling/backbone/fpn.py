@@ -61,16 +61,26 @@ class FPN(Backbone):
         assert in_features, in_features
 
         # Feature map strides and channels from the bottom up network (e.g. ResNet)
+        # 输入的shape就是resnet输出的shape，这里的shape不是一个数，是stride和channel
+        # 点进output_shape就是知道了
         input_shapes = bottom_up.output_shape()
+        # 说明：in_features=["res3", "res4", "res5"]
+        # strides和in_channels_per_feature都是数组
         strides = [input_shapes[f].stride for f in in_features]
         in_channels_per_feature = [input_shapes[f].channels for f in in_features]
 
+        #看一下stride是不是2的倍数
         _assert_strides_are_log2_contiguous(strides)
         lateral_convs = []
         output_convs = []
 
         use_bias = norm == ""
         for idx, in_channels in enumerate(in_channels_per_feature):
+            # 添加正则化层的操作，点进函数看就是知道了
+            # 他的返回值是module或者none，out_channels是个数
+            # 每一个in_feature对应一个lateral_norm和一个outputnorm
+            # 以及一个lateral_conv和一个output_conv
+            # 这两个东西存在的意义就是把输出都统一成outchannel 默认值是256
             lateral_norm = get_norm(norm, out_channels)
             output_norm = get_norm(norm, out_channels)
 
@@ -91,25 +101,29 @@ class FPN(Backbone):
             stage = int(math.log2(strides[idx]))
             self.add_module("fpn_lateral{}".format(stage), lateral_conv)
             self.add_module("fpn_output{}".format(stage), output_conv)
-
             lateral_convs.append(lateral_conv)
             output_convs.append(output_conv)
         # Place convs into top-down order (from low to high resolution)
         # to make the top-down computation in forward clearer.
-        self.lateral_convs = lateral_convs[::-1]
+        # [::-1]是一个转置的操作
+        self.lateral_convs = lateral_convs[::-1] 
         self.output_convs = output_convs[::-1]
-        self.top_block = top_block
+        self.top_block = top_block  # 初始化的时候会传入 是一个类
         self.in_features = tuple(in_features)
         self.bottom_up = bottom_up
         # Return feature names are "p<stage>", like ["p2", "p3", ..., "p6"]
+        # self._out_feature_strides 是特征的名字p2，p3...p5
         self._out_feature_strides = {"p{}".format(int(math.log2(s))): s for s in strides}
         # top block output feature maps.
         if self.top_block is not None:
             for s in range(stage, stage + self.top_block.num_levels):
-                self._out_feature_strides["p{}".format(s + 1)] = 2 ** (s + 1)
+                # 2 ** (s + 1) 表示2的(s+1)次方
+                self._out_feature_strides["p{}".format(s + 1)] = 2 ** (s + 1) 
 
         self._out_features = list(self._out_feature_strides.keys())
+        # out_channel 是一个统一的定值
         self._out_feature_channels = {k: out_channels for k in self._out_features}
+        # 尺寸_可分割性？什么东西不懂，就这个地方和下边出现了
         self._size_divisibility = strides[-1]
         self._square_pad = square_pad
         assert fuse_type in {"avg", "sum"}
@@ -138,7 +152,12 @@ class FPN(Backbone):
         """
         bottom_up_features = self.bottom_up(x)
         results = []
+        # self.lateral_convs[0] 重新排列后的第一个lateral_convs
+        # 这个就正好对应了bottom_up_features输出的最后一个特征
+        # 把这个特征用self.lateral_convs[0] 算一下
+        # 然后再把输出结果用self.output_convs算一下
         prev_features = self.lateral_convs[0](bottom_up_features[self.in_features[-1]])
+        # result是一个特征图的数组，不是名字加特征图的字典
         results.append(self.output_convs[0](prev_features))
 
         # Reverse feature maps into top-down order (from low to high resolution)
@@ -147,23 +166,33 @@ class FPN(Backbone):
         ):
             # Slicing of ModuleList is not supported https://github.com/pytorch/pytorch/issues/47336
             # Therefore we loop over all modules but skip the first one
+            # 循环所有的model但是跳过第一个，因为第一个刚刚已经算过了
             if idx > 0:
+                # 把上边157行那一步拆开写了
                 features = self.in_features[-idx - 1]
                 features = bottom_up_features[features]
+                # 线性插值 计算top_down_features
                 top_down_features = F.interpolate(prev_features, scale_factor=2.0, mode="nearest")
                 lateral_features = lateral_conv(features)
                 prev_features = lateral_features + top_down_features
                 if self._fuse_type == "avg":
                     prev_features /= 2
+                # 计算完的特征，插入到第一个
                 results.insert(0, output_conv(prev_features))
 
+        # self.top_block 上边说了 是一个类 
         if self.top_block is not None:
-            if self.top_block.in_feature in bottom_up_features:
+            # bottom_up_features是self.bottom_up也就是resnet的输出，是一个字典
+            # {名字：特征图}
+            if self.top_block.in_feature in bottom_up_features: # 默认的 top_block.in_feature是p5
                 top_block_in_feature = bottom_up_features[self.top_block.in_feature]
             else:
+            # 不在resnet的输出里，那就去result里面找，按照索引找到
                 top_block_in_feature = results[self._out_features.index(self.top_block.in_feature)]
+            # result的后边再加top_block的输出（不一定是一个）
             results.extend(self.top_block(top_block_in_feature))
         assert len(self._out_features) == len(results)
+        # 返回值 同样要是一个字典，{名字：特征图}
         return {f: res for f, res in zip(self._out_features, results)}
 
     def output_shape(self):
