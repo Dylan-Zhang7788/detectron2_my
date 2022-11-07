@@ -265,6 +265,9 @@ class CascadeROIHeads(StandardROIHeads):
         Returns:
             Same output as `FastRCNNOutputLayers.forward()`.
         """
+        # 输入：5个level上的feature 8张图中，每张图中有256个proposal
+        # 输出 box_features shape：[2048,256,7,7] 7是人为设定的形状 2048表示所有的框 8*256
+        # 256是输入的通道数
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         # The original implementation averages the losses among heads,
         # but scale up the parameter gradients of the heads.

@@ -149,6 +149,7 @@ class GeneralizedRCNN(nn.Module):
         if not self.training:
             return self.inference(batched_inputs)
 
+        # 把输入的img进行一下处理，把他转换成tensor，然后正则化
         images = self.preprocess_image(batched_inputs)
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]

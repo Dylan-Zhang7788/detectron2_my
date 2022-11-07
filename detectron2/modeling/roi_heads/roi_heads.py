@@ -263,15 +263,21 @@ class ROIHeads(torch.nn.Module):
         num_bg_samples = []
         for proposals_per_image, targets_per_image in zip(proposals, targets):
             has_gt = len(targets_per_image) > 0
+            # pairwise_iou的作用是 给定N个proposal和M个gt生成N*M的矩阵
+            # 矩阵中的每个元素 表示对应的proposal与gt的IOU
+            # 注意：这里匹配的是 proposal的索引与该图中真值的索引 并不是所属的类别
+            # 例如 某张图中的真值是[0,12,22,5] 那他的索引就是[0,1,2,3]，在后续的sample中，会根据索引取类别
             match_quality_matrix = pairwise_iou(
                 targets_per_image.gt_boxes, proposals_per_image.proposal_boxes
             )
             matched_idxs, matched_labels = self.proposal_matcher(match_quality_matrix)
+            # 这里是对框进行采样 这里只采样256个 里面存放的是他们的索引
             sampled_idxs, gt_classes = self._sample_proposals(
                 matched_idxs, matched_labels, targets_per_image.gt_classes
             )
 
             # Set target attributes of the sampled proposals:
+            # 利用索引 取到框
             proposals_per_image = proposals_per_image[sampled_idxs]
             proposals_per_image.gt_classes = gt_classes
 

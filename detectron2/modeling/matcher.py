@@ -90,17 +90,22 @@ class Matcher(object):
 
         # match_quality_matrix is M (gt) x N (predicted)
         # Max over gt elements (dim 0) to find best gt candidate for each prediction
+        # match_vals存的是该预测框与对应真值的IOU，matches是与预测框IOU最大的真实框，即预测框对应哪个真值框
+        # 这里只是挑选出了最大的 还没有通过IOU筛选
         matched_vals, matches = match_quality_matrix.max(dim=0)
 
         match_labels = matches.new_full(matches.size(), 1, dtype=torch.int8)
 
+        # centernet2里只设置了背景和前景 >0.6会被认为是前景 否则是背景
+        # match_labels是对前景和背景的标记，只有0和1
         for (l, low, high) in zip(self.labels, self.thresholds[:-1], self.thresholds[1:]):
             low_high = (matched_vals >= low) & (matched_vals < high)
             match_labels[low_high] = l
 
         if self.allow_low_quality_matches:
             self.set_low_quality_matches_(match_labels, match_quality_matrix)
-
+        
+        # 返回值筛选前的对应关系（与哪个GT的IOU最大），以及这个预测框，实际上被归为背景还是前景
         return matches, match_labels
 
     def set_low_quality_matches_(self, match_labels, match_quality_matrix):

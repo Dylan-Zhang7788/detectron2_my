@@ -1,3 +1,4 @@
 import numpy as np
-a=2**(3+1)
-print(a)
+
+for i in range(3):
+    print(i)
