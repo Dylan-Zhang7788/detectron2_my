@@ -37,6 +37,9 @@ from detectron2.evaluation import (
     verify_results,
 )
 from detectron2.modeling import GeneralizedRCNNWithTTA
+from detectron2.MY_datasets.MY_balloon import MY_register_balloon,MY_register_balloon_one
+MY_register_balloon()
+MY_register_balloon_one()
 
 
 def build_evaluator(cfg, dataset_name, output_folder=None):
